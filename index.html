@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wallet Address Verification</title>
+    <style>
+        /* 基本的 CSS 样式 */
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        #connectButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Wallet Address Verification</h2>
+    <button id="connectButton">Connect Wallet</button>
+    <p id="status"></p>
+
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+    const connectButton = document.getElementById('connectButton');
+    const statusElement = document.getElementById('status');
+
+    let walletConnected = false;
+    let userAddress = ''; // 用于存储用户的钱包地址
+
+    async function connectWallet() {
+        if (window.ethereum) {
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                walletConnected = true;
+                userAddress = accounts[0]; // 存储用户的钱包地址
+                connectButton.textContent = 'Sign Message';
+                statusElement.textContent = '钱包连接成功。地址：' + userAddress;
+                return true;
+            } catch (error) {
+                statusElement.textContent = '连接钱包失败：' + error;
+                return false;
+            }
+        } else {
+            statusElement.textContent = '请安装 MetaMask!';
+            return false;
+        }
+    }
+
+    async function signMessage() {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+
+        // 从 URL 参数中获取 message 和 callback URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const message = urlParams.get('message');
+        let callbackUrl = urlParams.get('callback');
+        callbackUrl = decodeURIComponent(callbackUrl); // 解码 URL
+
+        try {
+            const signature = await signer.signMessage(message);
+
+            // 发送签名到回调地址
+            fetch(callbackUrl, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: userAddress, message, signature })
+            })
+            .then(response => response.json())
+            .then(data => {
+                statusElement.textContent = '已提交成功，请关闭页面。您的地址：' + userAddress;
+            })
+            .catch(error => {
+                statusElement.textContent = '提交失败：' + error;
+            });
+        } catch (error) {
+            statusElement.textContent = '签名失败：' + error;
+        }
+    }
+
+    connectButton.addEventListener('click', async () => {
+        if (!walletConnected) {
+            await connectWallet();
+        } else {
+            await signMessage();
+        }
+    });
+});
+
+
+    </script>
+</body>
+</html>
